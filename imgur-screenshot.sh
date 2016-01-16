@@ -271,43 +271,24 @@ function delete_image() {
   fi
 }
 
-function upload_authenticated_image() {
+function upload_image() {
   echo "Uploading '${1}'..."
   title="$(echo "${1}" | rev | cut -d "/" -f 1 | cut -d "." -f 2- | rev)"
-  if [ -n "${album_id}" ]; then
-    response="$(curl --compressed --connect-timeout "${upload_connect_timeout}" -m "${upload_timeout}" --retry "${upload_retries}" -fsSL --stderr - -F "title=${title}" -F "image=@\"${1}\"" -F "album=${album_id}" -H "Authorization: Bearer ${access_token}" https://api.imgur.com/3/image)"
-  else
-    response="$(curl --compressed --connect-timeout "${upload_connect_timeout}" -m "${upload_timeout}" --retry "${upload_retries}" -fsSL --stderr - -F "title=${title}" -F "image=@\"${1}\"" -H "Authorization: Bearer ${access_token}" https://api.imgur.com/3/image)"
-  fi
 
-  # JSON parser premium edition (not really)
-  if egrep -q '"success":\s*true' <<<"${response}"; then
-    img_id="$(egrep -o '"id":\s*"[^"]+"' <<<"${response}" | cut -d "\"" -f 4)"
-    img_ext="$(egrep -o '"link":\s*"[^"]+"' <<<"${response}" | cut -d "\"" -f 4 | rev | cut -d "." -f 1 | rev)" # "link" itself has ugly '\/' escaping and no https!
-    del_id="$(egrep -o '"deletehash":\s*"[^"]+"' <<<"${response}" | cut -d "\"" -f 4)"
-
-    if [ ! -z "${auto_delete}" ]; then
-      export -f delete_image
-      echo "Deleting image in ${auto_delete} seconds."
-      nohup /bin/bash -c "sleep ${auto_delete} && delete_image ${imgur_anon_id} ${del_id} ${log_file}" >/dev/null 2>&1 &
+  if [ "${login}" = "true" ]; then
+    if [ -n "${album_id}" ]; then
+      response="$(curl --compressed --connect-timeout "${upload_connect_timeout}" -m "${upload_timeout}" --retry "${upload_retries}" -fsSL --stderr - -F "title=${title}" -F "image=@\"${1}\"" -F "album=${album_id}" -H "Authorization: Bearer ${access_token}" https://api.imgur.com/3/image)"
+    else
+      response="$(curl --compressed --connect-timeout "${upload_connect_timeout}" -m "${upload_timeout}" --retry "${upload_retries}" -fsSL --stderr - -F "title=${title}" -F "image=@\"${1}\"" -H "Authorization: Bearer ${access_token}" https://api.imgur.com/3/image)"
     fi
-
-    handle_upload_success "https://i.imgur.com/${img_id}.${img_ext}" "https://imgur.com/delete/${del_id}" "${1}"
-  else # upload failed
-    err_msg="$(egrep -o '"error":\s*"[^"]+"' <<<"${response}" | cut -d "\"" -f 4)"
-    test -z "${err_msg}" && err_msg="${response}"
-    handle_upload_error "${err_msg}" "${1}"
-  fi
-}
-
-function upload_anonymous_image() {
-  echo "Uploading '${1}'..."
-  title="$(echo "${1}" | rev | cut -d "/" -f 1 | cut -d "." -f 2- | rev)"
-  if [ -n "${album_id}" ]; then
-    response="$(curl --compressed --connect-timeout "${upload_connect_timeout}" -m "${upload_timeout}" --retry "${upload_retries}" -fsSL --stderr - -H "Authorization: Client-ID ${imgur_anon_id}" -F "title=${title}" -F "image=@\"${1}\"" -F "album=${album_id}" https://api.imgur.com/3/image)"
   else
-    response="$(curl --compressed --connect-timeout "${upload_connect_timeout}" -m "${upload_timeout}" --retry "${upload_retries}" -fsSL --stderr - -H "Authorization: Client-ID ${imgur_anon_id}" -F "title=${title}" -F "image=@\"${1}\"" https://api.imgur.com/3/image)"
+    if [ -n "${album_id}" ]; then
+      response="$(curl --compressed --connect-timeout "${upload_connect_timeout}" -m "${upload_timeout}" --retry "${upload_retries}" -fsSL --stderr - -H "Authorization: Client-ID ${imgur_anon_id}" -F "title=${title}" -F "image=@\"${1}\"" -F "album=${album_id}" https://api.imgur.com/3/image)"
+    else
+      response="$(curl --compressed --connect-timeout "${upload_connect_timeout}" -m "${upload_timeout}" --retry "${upload_retries}" -fsSL --stderr - -H "Authorization: Client-ID ${imgur_anon_id}" -F "title=${title}" -F "image=@\"${1}\"" https://api.imgur.com/3/image)"
+    fi
   fi
+
   # JSON parser premium edition (not really)
   if egrep -q '"success":\s*true' <<<"${response}"; then
     img_id="$(egrep -o '"id":\s*"[^"]+"' <<<"${response}" | cut -d "\"" -f 4)"
@@ -538,11 +519,7 @@ for upload_file in "${upload_files[@]}"; do
     fi
   fi
 
-  if [ "${login}" = "true" ]; then
-    upload_authenticated_image "${img_file}"
-  else
-    upload_anonymous_image "${img_file}"
-  fi
+  upload_image "$img_file"
 
   # delete file if configured
   if [ "${keep_file}" = "false" ] && [ -z "${1}" ]; then
