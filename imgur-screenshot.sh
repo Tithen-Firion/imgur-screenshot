@@ -44,6 +44,8 @@ upload_connect_timeout="5"
 upload_timeout="120"
 upload_retries="1"
 
+notify_timeout="500"
+
 if is_mac; then
   screenshot_select_command="screencapture -i %img"
   screenshot_window_command="screencapture -iWa %img"
@@ -118,9 +120,9 @@ function notify() {
     fi
   else
     if [ "${1}" = "error" ]; then
-      notify-send -a ImgurScreenshot -u critical -c "im.error" -i "${imgur_icon_path}" -t 3000 "imgur: ${2}" "${3}"
+      notify-send -a ImgurScreenshot -u critical -c "im.error" -i "${imgur_icon_path}" -t ${notify_timeout} "imgur: ${2}" "${3}"
     elif [ "$notify_level" != "error" ]; then
-      notify-send -a ImgurScreenshot -u low -c "transfer.complete" -i "${imgur_icon_path}" -t 3000 "imgur: ${2}" "${3}"
+      notify-send -a ImgurScreenshot -u low -c "transfer.complete" -i "${imgur_icon_path}" -t ${notify_timeout} "imgur: ${2}" "${3}"
     fi
   fi
 }
